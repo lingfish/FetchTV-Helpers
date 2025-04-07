@@ -1,16 +1,16 @@
 #!/usr/bin/python
-import json
 import os
-import sys
 import re
 import requests
 from datetime import datetime
 import jsonpickle
-from pprint import pprint
-from clint.textui import progress
 from requests.exceptions import ChunkedEncodingError
+from rich.pretty import pprint
+from rich.progress import Progress, TransferSpeedColumn
+from rich.tree import Tree
 from urllib3.exceptions import IncompleteRead
 import click
+from rich.console import Console
 
 import helpers.upnp as upnp
 
@@ -26,6 +26,7 @@ MAX_FILENAME = 255
 REQUEST_TIMEOUT = 5
 MAX_OCTET = 4398046510080
 
+console = Console(highlight=False, log_path=False)
 
 class SavedFiles:
     """
@@ -74,25 +75,34 @@ def download_file(item, filename, json_result):
     """
     Download the url contents to a file
     """
-    print_item('Writing: [%s] to [%s]' % (item.title, filename))
+    progress = Progress(
+        *Progress.get_default_columns(),
+        TransferSpeedColumn(),
+        console=console,
+    )
+    console.log(f'Writing: [{item.title}] to [{filename}]', markup=False)
     with requests.get(item.url, stream=True) as r:
         r.raise_for_status()
         total_length = int(r.headers.get('content-length'))
         if total_length == MAX_OCTET:
             msg = 'Skipping item it\'s currently recording'
-            print_warning(msg, level=2)
+            print_warning(msg)
             json_result['warning'] = msg
             return False
 
         try:
             with open(filename + CONST_LOCK, 'xb') as f:
-                for chunk in progress.bar(r.iter_content(chunk_size=8192), expected_size=(total_length / 8192) + 1):
-                    if chunk:  # filter out keep-alive new chunks
-                        f.write(chunk)
+                with progress:
+                    task = progress.add_task('Downloading', total=total_length)
+                    progress.start_task(task)
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+                            progress.update(task, advance=len(chunk))
 
         except FileExistsError:
             msg = 'Already writing (lock file exists) skipping'
-            print_warning(msg, level=2)
+            print_warning(msg)
             json_result['warning'] = msg
             return False
         except ChunkedEncodingError as err:
@@ -103,11 +113,11 @@ def download_file(item, filename, json_result):
                 except IndexError:
                     msg = f'Chunked encoding error occurred. Content length was {total_length}. Error was: {err}'
 
-            print_warning(msg, level=2)
+            print_warning(msg)
             json_result['warning'] = msg
         except IOError as err:
             msg = f'Error writing file: {err}'
-            print_error(msg, level=2)
+            print_error(msg)
             json_result['error'] = msg
             return False
 
@@ -183,16 +193,16 @@ def filter_recording_items(folder, exclude, title, shows, is_recording, recordin
 
 
 def discover_fetch(ip=False, port=FETCHTV_PORT):
-    print_heading('Starting Discovery')
+    console.print('Starting discovery')
     try:
         location_urls = upnp.discover_pnp_locations() if not ip else ['http://%s:%i/MediaServer.xml' % (ip, port)]
         locations = upnp.parse_locations(location_urls)
         # Find fetch
         result = [location for location in locations if location.manufacturerURL == 'http://www.fetch.com/']
         if len(result) == 0:
-            print_heading('Discovery failed', 'ERROR: Unable to locate Fetch UPNP service')
+            print_error('Discovery failed: ERROR: Unable to locate Fetch UPNP service')
             return None
-        print_heading('Discovery successful', result[0].url)
+        console.print(f'Discovery successful: {result[0].url}')
     except upnp.UpnpError as err:
         print_error(err)
         return None
@@ -231,23 +241,21 @@ def save_recordings(recordings, save_path, overwrite):
                     result['recorded'] = True
                     saved_files.add_file(item)
     if not some_to_record:
-        print('\t -- There is nothing new to record')
+        print_item('There is nothing new to record')
     return json_result
 
 
-def print_item(param, level=1):
-    space = '\t' * level
-    print(f'{space} -- {param}')
+def print_item(param):
+    console.print(f'{param}', markup=False)
 
-
-def print_warning(param, level=2):
-    space = '\t' * level
-    print(f'{space} -- [!] {param}')
-
+def print_warning(param):
+    console.print(f'[bold yellow]{param}')
 
 def print_error(param, level=2):
-    space = '\t' * level
-    print(f'{space} -- [!] {param}')
+    console.print(f'[bold red]{param}')
+
+def print_heading(param):
+    console.rule(title=param)
 
 
 def create_item(item):
@@ -264,13 +272,16 @@ def create_item(item):
 
 def print_recordings(recordings, output_json):
     if not output_json:
-        print_heading('List Recordings')
+        print_heading('List recordings')
         if not recordings:
-            print_warning('No recordings found!', level=1)
+            print_warning('No recordings found!')
+
+        tree = Tree('Recordings')
         for recording in recordings:
-            print_item(recording['title'])
+            title = tree.add(f'[green]:file_folder: {recording["title"]}')
             for item in recording['items']:
-                print_item(f'{item.title} ({item.url})', level=2)
+                title.add(f'{item.title} ({item.url})')
+        console.print(tree)
     else:
         output = []
         for recording in recordings:
@@ -278,17 +289,10 @@ def print_recordings(recordings, output_json):
             output.append({'id': recording['id'], 'title': recording['title'], 'items': items})
             for item in recording['items']:
                 items.append(create_item(item))
-        output = json.dumps(output, indent=2, sort_keys=False)
-        print(output)
-        return output
-
-
-def print_heading(param, value=''):
-    print(f'[+] {param}: {value}')
+        console.print_json(data=output)
 
 
 @click.command()
-# @click.option('--help', is_flag=True, help='Display this help')
 @click.option('--info', is_flag=True, help='Attempts auto-discovery and returns the Fetch Servers details')
 @click.option('--recordings', is_flag=True, help='List or save recordings')
 @click.option('--shows', is_flag=True, help='List the names of shows with available recordings')
@@ -302,9 +306,9 @@ def print_heading(param, value=''):
 @click.option('--title', default=None, multiple=True, help='Only return recordings where the item contains the specified text')
 @click.option('--json', is_flag=True, help='Output show/recording/save results in JSON')
 def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json):
-    print_heading('Started', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    print_heading('Discover Fetch UPnP location')
-    fetch_server = discover_fetch(ip=ip, port=port)
+    print_heading(f'Started: {datetime.now():%Y-%m-%d %H:%M:%S}')
+    with console.status('Discover Fetch UPnP location...'):
+        fetch_server = discover_fetch(ip=ip, port=port)
 
     if not fetch_server:
         return
@@ -313,20 +317,19 @@ def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder
         pprint(vars(fetch_server))
 
     if recordings or shows or isrecording:
-        # folder_list = folder.split(',') if folder else []
-        # exclude_list = exclude.split(',') if exclude else []
-        # title_list = title.split(',') if title else []
-        recordings = get_fetch_recordings(fetch_server, folder, exclude, title, shows, isrecording)
+        with console.status('Getting Fetch recordings...'):
+            recordings = get_fetch_recordings(fetch_server, folder, exclude, title, shows, isrecording)
         if not save:
             print_recordings(recordings, json)
         else:
-            print_heading('Saving Recordings')
+            # with console.status('Saving recordings'):
+            print_heading('Saving recordings')
             json_result = save_recordings(recordings, save, overwrite)
             if json:
-                output = json.dumps(json_result, indent=2, sort_keys=False)
-                print(output)
-    print_heading('Done', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                console.print_json(data=json_result)
+    print_heading(f'Done: {datetime.now():%Y-%m-%d %H:%M:%S}')
 
 
 if __name__ == "__main__":
     main()
+
