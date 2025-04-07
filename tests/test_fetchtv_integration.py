@@ -4,7 +4,7 @@ import unittest
 
 import pytest
 
-import fetchtv_upnp as fetchtv
+from src.fetchtv_cli import fetchtv_cli as fetchtv
 from mock import Mock, patch
 
 pytestmark = pytest.mark.skip(reason='These are strange (and probably not required) integration tests')
@@ -66,13 +66,13 @@ class TestUpnp(unittest.TestCase):
         with patch('helpers.upnp.discover_pnp_locations', Mock(return_value=[self.get_server_url()])):
             fetch_server = fetchtv.discover_fetch()
             self.assertEqual(fetch_server.url, self.get_server_url())
-            fetchtv.upnp.discover_pnp_locations.assert_called_once()
+            src.fetchtv_cli.helpers.upnp.discover_pnp_locations.assert_called_once()
 
         # Mock auto discovery
         with patch('helpers.upnp.discover_pnp_locations', Mock(return_value=[])):
             fetch_server = fetchtv.discover_fetch()
             self.assertIsNone(fetch_server)
-            fetchtv.upnp.discover_pnp_locations.assert_called_once()
+            src.fetchtv_cli.helpers.upnp.discover_pnp_locations.assert_called_once()
 
         # Manual server
         fetch_server = fetchtv.discover_fetch(ip=FETCHTV_IP, port=FETCHTV_PORT)

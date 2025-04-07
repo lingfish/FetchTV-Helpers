@@ -12,7 +12,7 @@ This is a fork of the original project called [FetchTV-Helpers](https://github.c
 
 ## Introduction
 
-This script allows you to download recordings from Fetch TV boxes.
+This tool allows you to download recordings from Fetch TV boxes.
 
 It can also be used to query recording information on the Fetch TV box.
 

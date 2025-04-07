@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fetchtv-cli"
+dynamic = ["version"]
+description = 'A CLI tool to download recordings from FetchTV using UPnP.'
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "lingfish", email = "jason@lucid.net.au" },
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "requests>=2.25.1",
+  "jsonpickle>=2.0.0",
+  "click",
+  "rich"
+]
+
+[project.urls]
+Documentation = "https://github.com/lingfish/fetchtv-cli#readme"
+Issues = "https://github.com/lingfish/fetchtv-cli/issues"
+Source = "https://github.com/lingfish/fetchtv-cli"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/fetchtv_cli tests}"
+
+[tool.coverage.run]
+source_pkgs = ["fetchtv_cli", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/fetchtv_cli/_version.py",
+]
+
+[tool.coverage.paths]
+fetchtv_cli = ["src/fetchtv_cli", "*/fetchtv-cli/src/fetchtv_cli"]
+tests = ["tests", "*/fetchtv-cli/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[project.scripts]
+compress-mail = "fetchtv_cli.fetchtv_cli:main"
+
+[tool.pylint]
+max-line-length = 120
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.pytest.ini_options]
+log_level = "DEBUG"
+
+[tool.hatch.envs.hatch-test.scripts]
+run = "pytest{env:HATCH_TEST_ARGS:} {args}"
+run-cov = "coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}"
+cov-combine = "coverage combine"
+cov-report = "coverage xml"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/fetchtv_cli/_version.py"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.targets.sdist]
+only-packages = true

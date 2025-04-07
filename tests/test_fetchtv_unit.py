@@ -3,10 +3,9 @@ import os
 import pytest
 from click.testing import CliRunner
 
-import fetchtv_upnp as fetchtv
+from src.fetchtv_cli import fetchtv_cli as fetchtv
 import tempfile
 from unittest.mock import Mock, patch, mock_open
-import helpers.upnp as upnp
 
 OPTION_IP = '--ip'
 OPTION_PORT = '--port'
