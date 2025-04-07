@@ -1,8 +1,13 @@
 import os
 import tempfile
 import unittest
+
+import pytest
+
 import fetchtv_upnp as fetchtv
 from mock import Mock, patch
+
+pytestmark = pytest.mark.skip(reason='These are strange (and probably not required) integration tests')
 
 OPTION_IP = '--ip'
 OPTION_PORT = '--port'

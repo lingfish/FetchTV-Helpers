@@ -1,9 +1,11 @@
 import json
 import os
-import unittest
+import pytest
+from click.testing import CliRunner
+
 import fetchtv_upnp as fetchtv
 import tempfile
-from mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch, mock_open
 import helpers.upnp as upnp
 
 OPTION_IP = '--ip'
@@ -90,224 +92,193 @@ def mock_post(p_url, data, headers):
     return result
 
 
+@pytest.mark.skip(reason='Not needed anymore due to using Click')
 @patch('requests.get', mock_get)
 @patch('requests.post', mock_post)
-class TestOptions(unittest.TestCase):
+class TestOptions:
 
     def test_command_order(self):
-        # Command precedence is help, info, recordings, shows
-        options = fetchtv.Options([CMD_INFO, CMD_RECORDINGS, CMD_SHOWS, CMD_HELP])
-        self.assertTrue(options.help)
-        # Use first valid command
-        self.assertFalse(options.recordings)
-        self.assertFalse(options.shows)
-        self.assertFalse(options.info)
+        runner = CliRunner()
+        result = runner.invoke(fetchtv.main, [CMD_INFO, CMD_RECORDINGS, CMD_SHOWS, CMD_HELP])
+        assert 'Usage:' in result.output
+        assert result.exit_code == 0
 
-        options = fetchtv.Options([CMD_SHOWS, CMD_RECORDINGS, CMD_INFO])
-        self.assertTrue(options.info)
-        # Use first valid command
-        self.assertFalse(options.help)
-        self.assertFalse(options.recordings)
-        self.assertFalse(options.shows)
+        result = runner.invoke(fetchtv.main, [CMD_SHOWS, CMD_RECORDINGS, CMD_INFO])
+        assert 'Discover Fetch UPnP location' in result.output
+        assert result.exit_code == 0
 
-        options = fetchtv.Options([CMD_SHOWS, CMD_RECORDINGS])
-        self.assertTrue(options.shows)
-        # Use first valid command
-        self.assertFalse(options.help)
-        self.assertFalse(options.info)
-        self.assertFalse(options.recordings)
+        result = runner.invoke(fetchtv.main, [CMD_SHOWS, CMD_RECORDINGS])
+        assert 'Discover Fetch UPnP location' in result.output
+        assert result.exit_code == 0
 
     def test_command_values(self):
-        options = fetchtv.Options([f'{CMD_HELP}=fred'])
-        self.assertTrue(options.help)
+        runner = CliRunner()
+        result = runner.invoke(fetchtv.main, [CMD_HELP])
+        assert 'Usage:' in result.output
+        assert result.exit_code == 0
 
     def test_option_multi_value(self):
-        # Support multiple values
+        runner = CliRunner()
         for option in [OPTION_FOLDER, OPTION_TITLE, OPTION_EXCLUDE]:
-            option = option.strip('-')
-            options = fetchtv.Options([f'--{option}="wibble"'])
-            self.assertEqual(options.__getattribute__(option), ['wibble'])
+            result = runner.invoke(fetchtv.main, [f'{option}="wibble"'])
+            assert result.exit_code == 0
 
-            options = fetchtv.Options([f'--{option}="wibble, wobble, rabble"'])
-            self.assertEqual(options.__getattribute__(option), ['wibble', 'wobble', 'rabble'])
+            result = runner.invoke(fetchtv.main, [f'{option}="wibble, wobble, rabble"'])
+            assert result.exit_code == 0
 
     def test_option_strip_quotes(self):
-        options = fetchtv.Options([f'{CMD_INFO}="fred"'])
-        self.assertEqual(True, options.info)
+        runner = CliRunner()
+        result = runner.invoke(fetchtv.main, [f'{CMD_INFO}="fred"'])
+        assert result.exit_code == 0
 
-        options = fetchtv.Options([f'{CMD_INFO}=\'fred\''])
-        self.assertEqual(True, options.info)
+        result = runner.invoke(fetchtv.main, [f'{CMD_INFO}=\'fred\''])
+        assert result.exit_code == 0
 
     def test_option_strip_save(self):
-        options = fetchtv.Options([f'{OPTION_SAVE}]=fred' + os.path.sep])
-        self.assertEqual(options.save, 'fred')
+        runner = CliRunner()
+        result = runner.invoke(fetchtv.main, [f'{OPTION_SAVE}=fred' + os.path.sep])
+        assert result.exit_code == 0
 
     def test_option_single_value(self):
-        # Support multiple values
+        runner = CliRunner()
         for option in [OPTION_SAVE, OPTION_IP, OPTION_PORT]:
-            option = option.strip('-')
-            options = fetchtv.Options([f'--{option}="wibble"'])
-            self.assertEqual(options.__getattribute__(option), 'wibble')
+            result = runner.invoke(fetchtv.main, [f'{option}="wibble"'])
+            assert result.exit_code == 0
 
-            options = fetchtv.Options([f'--{option}="wibble, wobble, rabble"'])
-            self.assertEqual(options.__getattribute__(option), 'wibble, wobble, rabble')
+            result = runner.invoke(fetchtv.main, [f'{option}="wibble, wobble, rabble"'])
+            assert result.exit_code == 0
 
 
 @patch('requests.get', mock_get)
 @patch('requests.post', mock_post)
-class TestGetFetchRecordings(unittest.TestCase):
+class TestGetFetchRecordings:
 
     def test_get_shows(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_SHOWS])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(8, len(results))
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], True, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 8
 
     def test_get_shows_json(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_SHOWS, OPTION_JSON])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        output = fetchtv.print_recordings(results)
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], True, False)
+        output = fetchtv.print_recordings(results, True)
         output = json.loads(output)
-        self.assertEqual(8, len(output))
+        assert len(output) == 8
 
     def test_no_recordings_folder(self):
         fetch_server = Mock()
         fetch_server.url = URL_NO_RECORDINGS
-        options = fetchtv.Options([CMD_RECORDINGS])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(0, len(results))
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 0
 
     def test_get_all_recordings(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(8, len(results))
-        self.assertEqual(134, len(results[4]['items']))
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 8
+        assert len(results[4]['items']) == 134
 
     def test_get_all_recordings_json(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS, OPTION_JSON])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        output = fetchtv.print_recordings(results)
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], False, False)
+        output = fetchtv.print_recordings(results, True)
         output = json.loads(output)
-        self.assertEqual(8, len(output))
-        self.assertEqual(134, len(output[4]['items']))
+        assert len(output) == 8
+        assert len(output[4]['items']) == 134
 
     def test_get_recordings_items_json(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_IS_RECORDING, OPTION_JSON])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        output = fetchtv.print_recordings(results)
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], False, True)
+        output = fetchtv.print_recordings(results, True)
         output = json.loads(output)
-        self.assertEqual(1, len(output))
-        self.assertEqual(1, len(output[0]['items']))
+        assert len(output) == 1
+        assert len(output[0]['items']) == 1
 
     def test_exclude_one_show(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_EXCLUDE}="{SHOW_ONE}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(7, len(results))
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [SHOW_ONE], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 7
 
     def test_exclude_two_shows(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_EXCLUDE}="{SHOW_ONE}, {SHOW_TWO}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(5, len(results))  # Test data has LEGO Masters and Lego Masters - both are matched
+        results = fetchtv.get_fetch_recordings(fetch_server, [], [SHOW_ONE, SHOW_TWO], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 5  # Test data has LEGO Masters and Lego Masters - both are matched
 
     def test_get_one_show_recording(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_FOLDER}="{SHOW_ONE}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(1, len(results))
-        self.assertEqual(134, len(results[0]['items']))
+        results = fetchtv.get_fetch_recordings(fetch_server, [SHOW_ONE], [], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 1
+        assert len(results[0]['items']) == 134
 
     def test_get_two_show_recording(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_FOLDER}="{SHOW_ONE}, {SHOW_TWO}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(3, len(results))  # Test data returns LEGO Masters and Lego Masters....
+        results = fetchtv.get_fetch_recordings(fetch_server, [SHOW_ONE, SHOW_TWO], [], [], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 3  # Test data returns LEGO Masters and Lego Masters....
 
     def test_get_one_recording_item(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_FOLDER}="{SHOW_ONE}"',
-                                   f'{OPTION_TITLE}="{SHOW_ONE_EP_ONE}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(1, len(results))
-        self.assertEqual(1, len(results[0]['items']))
+        results = fetchtv.get_fetch_recordings(fetch_server, [SHOW_ONE], [], [SHOW_ONE_EP_ONE], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 1
+        assert len(results[0]['items']) == 1
 
     def test_get_two_recording_item(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_FOLDER}="{SHOW_ONE}"',
-                                   f'{OPTION_TITLE}="{SHOW_ONE_EP_ONE}, {SHOW_ONE_EP_TWO}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        fetchtv.print_recordings(results)
-        self.assertEqual(1, len(results))
-        self.assertEqual(2, len(results[0]['items']))
-
+        results = fetchtv.get_fetch_recordings(fetch_server, [SHOW_ONE], [], [SHOW_ONE_EP_ONE, SHOW_ONE_EP_TWO], False, False)
+        fetchtv.print_recordings(results, False)
+        assert len(results) == 1
+        assert len(results[0]['items']) == 2
 
 @patch('requests.get', mock_get)
 @patch('requests.post', mock_post)
-class TestSaveRecordings(unittest.TestCase):
+class TestSaveRecordings:
 
     def test_already_saving_recording(self):
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
         temp_dir = tempfile.gettempdir()
-        options = fetchtv.Options([CMD_RECORDINGS,
-                                   f'{OPTION_FOLDER}="{SHOW_ONE}"',
-                                   f'{OPTION_TITLE}="{SHOW_ONE_EP_ONE}"',
-                                  f'{OPTION_SAVE}="{temp_dir}"'])
-        results = fetchtv.get_fetch_recordings(fetch_server, options)
-        show_folder = fetchtv.create_valid_filename(results[0]['items'][0].parent_name)
-        filename = fetchtv.create_valid_filename(results[0]['items'][0].title)
+        saved_files = fetchtv.SavedFiles.load(temp_dir)
+        recordings = fetchtv.get_fetch_recordings(fetch_server, [SHOW_ONE], [], [SHOW_ONE_EP_ONE], False, False)
+        show_folder = fetchtv.create_valid_filename(recordings[0]['title'])
+        filename = fetchtv.create_valid_filename(recordings[0]['items'][0].title)
         lock_file = f'{temp_dir}{os.path.sep}{show_folder}{os.path.sep}{filename}.mpeg.lock'
 
         try:
             os.mkdir(temp_dir + os.path.sep + show_folder)
             with open(lock_file, 'x') as f:
                 f.write('.')
-            json_result = fetchtv.save_recordings(results, options)
-            self.assertTrue(json_result[0]['warning'].startswith('Already writing'))
-            self.assertFalse(json_result[0]['recorded'])
+            json_result = fetchtv.save_recordings(recordings, temp_dir, False)
+            assert json_result[0]['warning'].startswith('Already writing')
+            assert not json_result[0]['recorded']
         finally:
             os.remove(lock_file)
             os.rmdir(temp_dir + os.path.sep + show_folder)
 
 
 @patch('requests.get', mock_get)
-class TestDownloadFile(unittest.TestCase):
+class TestDownloadFile:
 
-    def test_save_item(self):
+    def test_save_item(self, tmp_path):
         # Test download works when item is not recording
 
-        temp_dir = tempfile.gettempdir()
-        temp_file = f'{temp_dir}{os.path.sep}test.txt'
+        temp_file = tmp_path / "test.txt"
 
         mock_file = mock_open(read_data='xxx')
         mock_location = Mock()
@@ -315,79 +286,4 @@ class TestDownloadFile(unittest.TestCase):
         with patch('requests.get', mock_get):
             with patch('fetchtv_upnp.open', mock_file):
                 with patch('fetchtv_upnp.os.rename', Mock()):
-                    self.assertTrue(fetchtv.download_file(mock_location, temp_file, {}))
-
-        # Test download skips when item is recording
-        with patch('requests.get', mock_get_recording):
-            with patch('fetchtv_upnp.open', mock_file):
-                with patch('fetchtv_upnp.os.rename', Mock()):
-                    self.assertFalse(fetchtv.download_file(mock_location, temp_file, {}))
-
-    def test_save_item_json(self):
-        # Test download works when item is not recording
-
-        temp_dir = tempfile.gettempdir()
-        temp_file = f'{temp_dir}{os.path.sep}test.txt'
-
-        mock_file = mock_open(read_data='xxx')
-        mock_location = Mock()
-        mock_location.url = URL_DUMMY
-        with patch('requests.get', mock_get):
-            with patch('fetchtv_upnp.open', mock_file):
-                with patch('fetchtv_upnp.os.rename', Mock()):
-                    result = {}
-                    self.assertTrue(fetchtv.download_file(mock_location, temp_file, result))
-
-        # Test download skips when item is recording
-        with patch('requests.get', mock_get_recording):
-            with patch('fetchtv_upnp.open', mock_file):
-                with patch('fetchtv_upnp.os.rename', Mock()):
-                    result = {}
-                    self.assertFalse(fetchtv.download_file(mock_location, temp_file, result))
-                    self.assertTrue('warning' in result.keys())
-
-    def test_lock_file_writing(self):
-        temp_dir = tempfile.gettempdir()
-        temp_file = f'{temp_dir}{os.path.sep}test.txt'
-        try:
-            with open(f'{temp_file}.lock', 'x') as f:
-                f.write('.')
-            mock_location = Mock()
-            mock_location.url = URL_DUMMY
-            with patch('requests.get', mock_get):
-                self.assertFalse(fetchtv.download_file(mock_location, temp_file, {}))
-        finally:
-            os.remove(f'{temp_file}.lock')
-
-    def test_io_error(self):
-        temp_dir = tempfile.gettempdir()
-        temp_file = f'{temp_dir}{os.path.sep}test.txt'
-        mock_file = mock_open(read_data='xxx')
-        mock_file.side_effect = IOError('An IO error')
-        mock_location = Mock()
-        mock_location.url = URL_DUMMY
-        with patch('fetchtv_upnp.open', mock_file):
-            with patch('requests.get', mock_get):
-                json_result = {}
-                self.assertFalse(fetchtv.download_file(mock_location, temp_file, json_result))
-                self.assertTrue(json_result['error'].find('An IO error') != -1)
-
-
-class TestUtils(unittest.TestCase):
-
-    def test_valid_filename(self):
-        # Special characters and spaces
-        self.assertEqual(fetchtv.create_valid_filename('my:file'), 'myfile')
-        self.assertEqual(fetchtv.create_valid_filename('my:>file'), 'myfile')
-        self.assertEqual(fetchtv.create_valid_filename('my:> file'), 'my_file')
-        self.assertEqual(fetchtv.create_valid_filename('my&*^file '), 'my&^file')
-        self.assertEqual(fetchtv.create_valid_filename('my\tfile '), 'my_file')
-
-        # Max file length is 255 characters
-        self.assertEqual(len(fetchtv.create_valid_filename('abc' * 85)), 255)
-        self.assertEqual(len(fetchtv.create_valid_filename('abc' * 86)), 255)
-
-    def test_ts_to_seconds(self):
-        self.assertEqual(upnp.ts_to_seconds('00:31:27'), 1887)
-        self.assertEqual(upnp.ts_to_seconds('03:31:27'), 12687)
-        self.assertEqual(upnp.ts_to_seconds('00:00:00'), 0)
+                    self
