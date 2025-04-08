@@ -32,8 +32,8 @@ You can of course also install it using classic virtualenvs.
 
 ## Features
 
-* Autodiscover Fetch TV DLNA server
-* View server information
+* Autodiscover Fetch TV DLNA box
+* View box information
 * List all recordings, or matches for specified shows or titles
 * Save only new recordings, or save everything that matches shows or titles
 * Get responses as JSON. This includes additional item attributes, e.g. file size, duration, type (episode or movie),
@@ -93,21 +93,21 @@ fetchtv [COMMANDS] [OPTIONS]
 
 ### Commands
 
-| Command       | Description                                                                                                                                     |
-|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| --help        | Display this help                                                                                                                               |
-| --info        | Attempts auto-discovery and returns the Fetch Servers details                                                                                   |
-| --recordings  | List or save recordings                                                                                                                         |
-| --shows       | List the names of shows with available recordings                                                                                               |
-| --isrecording | List any items that are currently recording. If no filtering is specified this will scan all items on the Fetch server so it can take some time |
+| Command       | Description                                                                                                                                  |
+|---------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| --help        | Display this help                                                                                                                            |
+| --info        | Attempts auto-discovery and returns the Fetch box details                                                                                    |
+| --recordings  | List or save recordings                                                                                                                      |
+| --shows       | List the names of shows with available recordings                                                                                            |
+| --isrecording | List any items that are currently recording. If no filtering is specified this will scan all items on the Fetch box so it can take some time |
 
 
 ### Options
 
 | Option               | Description                                                                           |
 |----------------------|---------------------------------------------------------------------------------------|
-| --ip <address>       | Specify the IP address of the Fetch Server, if auto-discovery fails                   |
-| --port INTEGER       | Specify the port of the Fetch Server, if auto-discovery fails, normally 49152         |
+| --ip \<address\>     | Specify the IP address of the Fetch box, if auto-discovery fails                      |
+| --port INTEGER       | Specify the port of the Fetch box, if auto-discovery fails, normally 49152            |
 | --overwrite          | Will save and overwrite any existing files                                            |
 | --save <path>        | Save recordings to the specified path                                                 |
 | --folder "\<text\>"  | Only return recordings where the folder contains the specified text (can be repeated) |
