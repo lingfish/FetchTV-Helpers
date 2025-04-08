@@ -1,12 +1,15 @@
 #!/usr/bin/python
+import logging
 import os
 import re
+from dataclasses import fields
+
 import requests
 from datetime import datetime
 import jsonpickle
 from requests.exceptions import ChunkedEncodingError
-from rich.pretty import pprint
 from rich.progress import Progress, TransferSpeedColumn
+from rich.table import Table
 from rich.tree import Tree
 from urllib3.exceptions import IncompleteRead
 import click
@@ -18,6 +21,10 @@ try:
     from urlparse import urlparse
 except ImportError:
     pass
+
+from rich.traceback import install
+
+install(show_locals=True)
 
 SAVE_FILE = 'fetchtv_save_list.json'
 FETCHTV_PORT = 49152
@@ -299,9 +306,10 @@ def print_recordings(recordings, output_json):
 
         tree = Tree('Recordings')
         for recording in recordings:
-            title = tree.add(f'[green]:file_folder: {recording["title"]}')
-            for item in recording['items']:
-                title.add(f'{item.title} ({item.url})')
+            if recording['items']:
+                title = tree.add(f'[green]:file_folder: {recording["title"]}')
+                for item in recording['items']:
+                    title.add(f'{item.title} ({item.url})')
         console.print(tree)
     else:
         output = []
@@ -330,7 +338,19 @@ def print_recordings(recordings, output_json):
     '--title', default=None, multiple=True, help='Only return recordings where the item contains the specified text'
 )
 @click.option('--json', is_flag=True, help='Output show/recording/save results in JSON')
-def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json):
+@click.option('--debug', is_flag=True, help='Enable debug mode')
+def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json, debug):
+    if debug:
+        import http.client as http_client
+
+        http_client.HTTPConnection.debuglevel = 1
+        logging.basicConfig(level=logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
+        requests_log = logging.getLogger('requests.packages.urllib3')
+        requests_log.setLevel(logging.DEBUG)
+        requests_log.propagate = True
+        logging.debug('Debug mode is enabled')
+
     print_heading(f'Started: {datetime.now():%Y-%m-%d %H:%M:%S}')
     with console.status('Discover Fetch UPnP location...'):
         fetch_server = discover_fetch(ip=ip, port=port)
@@ -339,7 +359,16 @@ def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder
         return
 
     if info:
-        pprint(vars(fetch_server))
+        table = Table(title='Fetch TV box info', show_header=False)
+        table.add_column('Field', justify='left', style='bold')
+        table.add_column('Value', justify='left')
+
+        # Loop over the fields of the Location dataclass
+        for field in fields(fetch_server):
+            value = getattr(fetch_server, field.name)
+            table.add_row(field.name, str(value))
+
+        console.print(table)
 
     if recordings or shows or isrecording:
         with console.status('Getting Fetch recordings...'):

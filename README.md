@@ -53,43 +53,43 @@ fetchtv [COMMANDS] [OPTIONS]
   
 * **List all available recorded shows (doesn't include episodes)**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --shows
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --shows
 
 * **List only recordings that haven't been saved**
   ```bash
-  fetchtv --recordings --new --ip=192.168.1.10 --port=49152
+  fetchtv --recordings --new --ip 192.168.1.10 --port 49152
 
 * **Return responses as JSON**
   ```bash
-  fetchtv --recordings --json --ip=192.168.1.10 --port=49152
+  fetchtv --recordings --json --ip 192.168.1.10 --port 49152
 
 * **List all available recorded items (all shows and episodes)**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152
+  fetchtv --recordings --ip 192.168.1.10 --port 49152
 
 * **Save any new recordings to C:\\Temp**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --save="C:\\temp"
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --save "C:\\temp"
 
-* **Save any new recordings to C:\\Temp apart from 2 Broke Girls**
+* **Save any new recordings to C:\\Temp apart from 60 Minutes**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --save="C:\\temp" --exclude="2 Broke Girls"
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --save "C:\\temp" --exclude "60 Minutes"
 
-* **Save any new episodes for the show 2 Broke Girls to C:\\Temp**
+* **Save any new episodes for the show 60 Minutes to C:\\Temp**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --folder="2 Broke Girls" --save="C:\\temp"
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --folder "60 Minutes" --save "C:\\temp"
 
-* **Save episode containing 'S4 E12' for the show 2 Broke Girls to C:\\Temp**
+* **Save episode containing 'S4 E12' for the show 60 Minutes to C:\\Temp**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --overwrite --folder="2 Broke Girls" --title="S4 E12" --save="C:\\temp"
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --overwrite --folder "60 Minutes" --title "S4 E12" --save "C:\\temp"
 
-* **Save episode containing 'S4 E12' or 'S4 E13' for the show 2 Broke Girls to C:\\Temp**
+* **Save episode containing 'S4 E12' or 'S4 E13' for the show 60 Minutes to C:\\Temp**
   ```bash
-  fetchtv --recordings --ip=192.168.1.10 --port=49152 --overwrite --folder="2 Broke Girls" --title="S4 E12, S4 E13" --save="C:\\temp"
+  fetchtv --recordings --ip 192.168.1.10 --port 49152 --overwrite --folder "60 Minutes" --title "S4 E12, S4 E13" --save "C:\\temp"
 
 * **List anything currently recording** 
   ```bash
-  fetchtv --isrecording --ip=192.168.1.10 --port=49152
+  fetchtv --isrecording --ip 192.168.1.10 --port 49152
 
 ### Commands
 
@@ -104,13 +104,13 @@ fetchtv [COMMANDS] [OPTIONS]
 
 ### Options
 
-| Option               | Description                                                                           |
-|----------------------|---------------------------------------------------------------------------------------|
-| --ip \<address\>     | Specify the IP address of the Fetch box, if auto-discovery fails                      |
-| --port INTEGER       | Specify the port of the Fetch box, if auto-discovery fails, normally 49152            |
-| --overwrite          | Will save and overwrite any existing files                                            |
-| --save <path>        | Save recordings to the specified path                                                 |
-| --folder "\<text\>"  | Only return recordings where the folder contains the specified text (can be repeated) |
-| --exclude "\<text\>" | Dont download folders containing the specified text (can be repeated)                 |
-| --title "\<text\>"   | Only return recordings where the item contains the specified text (can be repeated)   |
-| --json               | Output show/recording/save results in JSON                                            |
+| Option             | Description                                                                           |
+|--------------------|---------------------------------------------------------------------------------------|
+| --ip \<address\>   | Specify the IP address of the Fetch box, if auto-discovery fails                      |
+| --port INTEGER     | Specify the port of the Fetch box, if auto-discovery fails, normally 49152            |
+| --overwrite        | Will save and overwrite any existing files                                            |
+| --save <path>      | Save recordings to the specified path                                                 |
+| --folder <text\>   | Only return recordings where the folder contains the specified text (can be repeated) |
+| --exclude \<text\> | Dont download folders containing the specified text (can be repeated)                 |
+| --title \<text\>   | Only return recordings where the item contains the specified text (can be repeated)   |
+| --json             | Output show/recording/save results in JSON                                            |

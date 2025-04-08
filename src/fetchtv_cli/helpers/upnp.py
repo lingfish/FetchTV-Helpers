@@ -1,5 +1,7 @@
 import re
 import socket
+from dataclasses import dataclass, field, InitVar
+
 import requests
 import xml.etree.ElementTree as ElementTree
 
@@ -18,33 +20,60 @@ class UpnpError(Exception):
         super().__init__(msg)
 
 
+@dataclass
 class Location:
-    BASE_PATH = './{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}'
+    url: str
+    xml: InitVar[str]
+    deviceType: str = field(init=False)
+    friendlyName: str = field(init=False)
+    manufacturer: str = field(init=False)
+    manufacturerURL: str = field(init=False)
+    modelDescription: str = field(init=False)
+    modelName: str = field(init=False)
+    modelNumber: str = field(init=False)
 
-    def __init__(self, url, xml):
-        self.url = url
-        self.deviceType = get_xml_text(xml, Location.BASE_PATH + 'deviceType')
-        self.friendlyName = get_xml_text(xml, Location.BASE_PATH + 'friendlyName')
-        self.manufacturer = get_xml_text(xml, Location.BASE_PATH + 'manufacturer')
-        self.manufacturerURL = get_xml_text(xml, Location.BASE_PATH + 'manufacturerURL')
-        self.modelDescription = get_xml_text(xml, Location.BASE_PATH + 'modelDescription')
-        self.modelName = get_xml_text(xml, Location.BASE_PATH + 'modelName')
-        self.modelNumber = get_xml_text(xml, Location.BASE_PATH + 'modelNumber')
+    def __post_init__(self, xml):
+        BASE_PATH = './{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}'
+        self.deviceType = get_xml_text(xml, BASE_PATH + 'deviceType')
+        self.friendlyName = get_xml_text(xml, BASE_PATH + 'friendlyName')
+        self.manufacturer = get_xml_text(xml, BASE_PATH + 'manufacturer')
+        self.manufacturerURL = get_xml_text(xml, BASE_PATH + 'manufacturerURL')
+        self.modelDescription = get_xml_text(xml, BASE_PATH + 'modelDescription')
+        self.modelName = get_xml_text(xml, BASE_PATH + 'modelName')
+        self.modelNumber = get_xml_text(xml, BASE_PATH + 'modelNumber')
 
 
+@dataclass
 class Folder:
-    def __init__(self, xml):
+    xml: InitVar[str]
+    title: str = field(init=False)
+    id: str = field(init=False)
+    parent_id: str = field(init=False)
+    items: list = field(default_factory=list, init=False)
+
+    def __post_init__(self, xml):
         self.title = xml.find('./{http://purl.org/dc/elements/1.1/}title').text
         self.id = get_xml_attr(xml, 'id', NO_NUMBER_DEFAULT)
         self.parent_id = get_xml_attr(xml, 'parentID', NO_NUMBER_DEFAULT)
-        self.items = []
 
     def add_items(self, items):
         self.items = [itm for itm in items]
 
 
+@dataclass
 class Item:
-    def __init__(self, xml):
+    xml: InitVar[str]
+    type: str = field(init=False)
+    title: str = field(init=False)
+    id: str = field(init=False)
+    parent_id: str = field(init=False)
+    description: str = field(init=False)
+    url: str = field(init=False)
+    size: int = field(init=False)
+    duration: int = field(init=False)
+    parent_name: str = field(init=False)
+
+    def __post_init__(self, xml):
         self.type = xml.find('./{urn:schemas-upnp-org:metadata-1-0/upnp/}class').text
         self.title = xml.find('./{http://purl.org/dc/elements/1.1/}title').text
         self.id = get_xml_attr(xml, 'id', NO_NUMBER_DEFAULT)
@@ -60,57 +89,47 @@ class Item:
 
 def ts_to_seconds(ts):
     """
-    Convert timestamp in the form 00:00:00 to seconds.
+    Convert timestamp in the form HH:MM:SS to seconds.
     e.g. 00:31:27 = 1887 seconds
     """
-    seconds = 0
-    for val in ts.split(':'):
-        seconds = seconds * 60 + float(val)
-    return seconds
+    return sum(float(unit) * 60**i for i, unit in enumerate(reversed(ts.split(':'))))
 
 
 def get_xml_attr(xml, name, default=''):
     """
-    Return an attribute value if it exists, if not return the default value
+    Return the value of an attribute if it exists, otherwise return the default value.
     """
-    return xml.attrib[name] if name in xml.attrib.keys() else default
+    return xml.attrib.get(name, default)
 
 
 def discover_pnp_locations():
     """
-    Send a multicast message tell all the pnp services that we are looking
-    For them. Keep listening for responses until we hit a 3 second timeout (yes,
-    this could technically cause an infinite loop). Parse the URL out of the
-    'location' field in the HTTP header and store for later analysis.
-
-    @return the set of advertised upnp locations
+    Discover UPnP locations by sending a multicast message and listening for responses.
     """
     locations = set()
-    location_regex = re.compile('location:[ ]*(.+)\r\n', re.IGNORECASE)
+    location_regex = re.compile(r'location:\s*(.+)\r\n', re.IGNORECASE)
     ssdp_discover = (
         'M-SEARCH * HTTP/1.1\r\n'
-        + 'HOST: 239.255.255.250:1900\r\n'
-        + 'MAN: "ssdp:discover"\r\n'
-        + 'MX: 1\r\n'
-        + 'ST: ssdp:all\r\n'
-        + '\r\n'
+        'HOST: 239.255.255.250:1900\r\n'
+        'MAN: "ssdp:discover"\r\n'
+        'MX: 1\r\n'
+        'ST: ssdp:all\r\n\r\n'
     )
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(ssdp_discover.encode('ASCII'), ('239.255.255.250', 1900))
-    sock.settimeout(DISCOVERY_TIMEOUT)
-    try:
-        while True:
-            data = sock.recvfrom(1024)[0]  # buffer size is 1024 bytes
-            location_result = location_regex.search(data.decode('ASCII'))
-            if location_result and location_result.group(1) not in locations:
-                locations.add(location_result.group(1))
-    except socket.timeout:
-        return locations
-    except socket.error as err:
-        raise UpnpError(msg=f'A socket error occurred, Error: {err}')
-    finally:
-        sock.close()
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.sendto(ssdp_discover.encode('ASCII'), ('239.255.255.250', 1900))
+        sock.settimeout(DISCOVERY_TIMEOUT)
+        try:
+            while True:
+                data = sock.recvfrom(1024)[0]
+                match = location_regex.search(data.decode('ASCII'))
+                if match:
+                    locations.add(match.group(1))
+        except socket.timeout:
+            pass
+        except socket.error as err:
+            raise UpnpError(f'A socket error occurred: {err}')
+    return locations
 
 
 def get_xml_text(xml, xml_name, default=''):
