@@ -39,6 +39,14 @@ You can of course also install it using classic virtualenvs.
 * Get responses as JSON. This includes additional item attributes, e.g. file size, duration, type (episode or movie),
   description
 
+## Notes/quirks
+
+It seems that Fetch do not reveal if a recording is deleted (actually only marked for deletion), via the DLNA returned.
+
+I've scoured the XML, tried different filters etc -- nothing works.  They must be keeping that flag in a different
+database, of which the status isn't reflected in the XML/DLNA.  This means that you'll see all recordings on
+the box, deleted or not, and if the state JSON goes missing, will probably be re-downloaded in certain situations.
+
 ## Usage
 
 ```
