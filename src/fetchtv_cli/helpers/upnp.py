@@ -19,22 +19,22 @@ class UpnpError(Exception):
 
 
 class Location:
-    BASE_PATH = "./{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}"
+    BASE_PATH = './{urn:schemas-upnp-org:device-1-0}device/{urn:schemas-upnp-org:device-1-0}'
 
     def __init__(self, url, xml):
         self.url = url
-        self.deviceType = get_xml_text(xml, Location.BASE_PATH + "deviceType")
-        self.friendlyName = get_xml_text(xml, Location.BASE_PATH + "friendlyName")
-        self.manufacturer = get_xml_text(xml, Location.BASE_PATH + "manufacturer")
-        self.manufacturerURL = get_xml_text(xml, Location.BASE_PATH + "manufacturerURL")
-        self.modelDescription = get_xml_text(xml, Location.BASE_PATH + "modelDescription")
-        self.modelName = get_xml_text(xml, Location.BASE_PATH + "modelName")
-        self.modelNumber = get_xml_text(xml, Location.BASE_PATH + "modelNumber")
+        self.deviceType = get_xml_text(xml, Location.BASE_PATH + 'deviceType')
+        self.friendlyName = get_xml_text(xml, Location.BASE_PATH + 'friendlyName')
+        self.manufacturer = get_xml_text(xml, Location.BASE_PATH + 'manufacturer')
+        self.manufacturerURL = get_xml_text(xml, Location.BASE_PATH + 'manufacturerURL')
+        self.modelDescription = get_xml_text(xml, Location.BASE_PATH + 'modelDescription')
+        self.modelName = get_xml_text(xml, Location.BASE_PATH + 'modelName')
+        self.modelNumber = get_xml_text(xml, Location.BASE_PATH + 'modelNumber')
 
 
 class Folder:
     def __init__(self, xml):
-        self.title = xml.find("./{http://purl.org/dc/elements/1.1/}title").text
+        self.title = xml.find('./{http://purl.org/dc/elements/1.1/}title').text
         self.id = get_xml_attr(xml, 'id', NO_NUMBER_DEFAULT)
         self.parent_id = get_xml_attr(xml, 'parentID', NO_NUMBER_DEFAULT)
         self.items = []
@@ -44,15 +44,14 @@ class Folder:
 
 
 class Item:
-
     def __init__(self, xml):
-        self.type = xml.find("./{urn:schemas-upnp-org:metadata-1-0/upnp/}class").text
-        self.title = xml.find("./{http://purl.org/dc/elements/1.1/}title").text
+        self.type = xml.find('./{urn:schemas-upnp-org:metadata-1-0/upnp/}class').text
+        self.title = xml.find('./{http://purl.org/dc/elements/1.1/}title').text
         self.id = get_xml_attr(xml, 'id', NO_NUMBER_DEFAULT)
         self.parent_id = get_xml_attr(xml, 'parentID', NO_NUMBER_DEFAULT)
-        self.description = xml.find("./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}description")
+        self.description = xml.find('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}description')
         self.description = self.description.text if self.description is not None else ''
-        res = xml.find("./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res")
+        res = xml.find('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res')
         self.url = res.text
         self.size = int(get_xml_attr(res, 'size', NO_NUMBER_DEFAULT))
         self.duration = ts_to_seconds(get_xml_attr(res, 'duration', '0'))
@@ -87,22 +86,24 @@ def discover_pnp_locations():
     @return the set of advertised upnp locations
     """
     locations = set()
-    location_regex = re.compile("location:[ ]*(.+)\r\n", re.IGNORECASE)
-    ssdp_discover = ('M-SEARCH * HTTP/1.1\r\n' +
-                     'HOST: 239.255.255.250:1900\r\n' +
-                     'MAN: "ssdp:discover"\r\n' +
-                     'MX: 1\r\n' +
-                     'ST: ssdp:all\r\n' +
-                     '\r\n')
+    location_regex = re.compile('location:[ ]*(.+)\r\n', re.IGNORECASE)
+    ssdp_discover = (
+        'M-SEARCH * HTTP/1.1\r\n'
+        + 'HOST: 239.255.255.250:1900\r\n'
+        + 'MAN: "ssdp:discover"\r\n'
+        + 'MX: 1\r\n'
+        + 'ST: ssdp:all\r\n'
+        + '\r\n'
+    )
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.sendto(ssdp_discover.encode('ASCII'), ("239.255.255.250", 1900))
+    sock.sendto(ssdp_discover.encode('ASCII'), ('239.255.255.250', 1900))
     sock.settimeout(DISCOVERY_TIMEOUT)
     try:
         while True:
             data = sock.recvfrom(1024)[0]  # buffer size is 1024 bytes
             location_result = location_regex.search(data.decode('ASCII'))
-            if location_result and not (location_result.group(1) in locations):
+            if location_result and location_result.group(1) not in locations:
                 locations.add(location_result.group(1))
     except socket.timeout:
         return locations
@@ -160,24 +161,28 @@ def get_services(location):
 
     result = {}
 
-    services = xml_root.findall(".//*{urn:schemas-upnp-org:device-1-0}serviceList/")
+    services = xml_root.findall('.//*{urn:schemas-upnp-org:device-1-0}serviceList/')
     for service in services:
         # Add a lead in '/' if it doesn't exist
         scp = service.find('./{urn:schemas-upnp-org:device-1-0}SCPDURL').text
         if scp[0] != '/':
             scp = '/' + scp
-        service_url = parsed.scheme + "://" + parsed.netloc + scp
+        service_url = parsed.scheme + '://' + parsed.netloc + scp
 
         # read in the SCP XML
         resp = requests.get(service_url, timeout=REQUEST_TIMEOUT)
         service_xml = ElementTree.fromstring(resp.text)
 
-        actions = service_xml.findall(".//*{urn:schemas-upnp-org:service-1-0}action")
+        actions = service_xml.findall('.//*{urn:schemas-upnp-org:service-1-0}action')
         for action in actions:
             if action.find('./{urn:schemas-upnp-org:service-1-0}name').text == 'Browse':
                 result['service_url'] = service_url
-                result['cd_ctr'] = parsed.scheme + "://" + parsed.netloc + service.find(
-                    './{urn:schemas-upnp-org:device-1-0}controlURL').text
+                result['cd_ctr'] = (
+                    parsed.scheme
+                    + '://'
+                    + parsed.netloc
+                    + service.find('./{urn:schemas-upnp-org:device-1-0}controlURL').text
+                )
                 result['cd_service'] = service.find('./{urn:schemas-upnp-org:device-1-0}serviceType').text
                 break
     return result
@@ -194,8 +199,7 @@ def find_directories(api_service, object_id='0'):
     p_url = api_service['cd_ctr']
     p_service = api_service['cd_service']
     result = []
-    payload = (
-        f'''
+    payload = f"""
             <?xml version="1.0" encoding="utf-8" standalone="yes"?>
             <s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
             <s:Body>
@@ -208,26 +212,23 @@ def find_directories(api_service, object_id='0'):
             </u:Browse>
             </s:Body>
             </s:Envelope>
-            ''')
+            """
 
-    soap_action_header = {
-        'Soapaction': f'"{p_service}#Browse"',
-        'Content-type': 'text/xml;charset="utf-8"'
-    }
+    soap_action_header = {'Soapaction': f'"{p_service}#Browse"', 'Content-type': 'text/xml;charset="utf-8"'}
 
     resp = requests.post(p_url, data=payload, headers=soap_action_header)
     if resp.status_code != 200:
         raise UpnpError(msg=f'Request failed with status: {resp.status_code}')
 
     xml_root = ElementTree.fromstring(resp.text)
-    containers = xml_root.find(".//*Result").text
+    containers = xml_root.find('.//*Result').text
     if not containers:
         return result
 
     xml_root = ElementTree.fromstring(containers)
-    containers = xml_root.findall("./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}container")
+    containers = xml_root.findall('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}container')
     for container in containers:
-        if container.find("./{urn:schemas-upnp-org:metadata-1-0/upnp/}class").text.find("object.container") > -1:
+        if container.find('./{urn:schemas-upnp-org:metadata-1-0/upnp/}class').text.find('object.container') > -1:
             folder = Folder(container)
             result.append(folder)
             folder.add_items(find_items(p_url, p_service, container.attrib['id']))
@@ -236,8 +237,7 @@ def find_directories(api_service, object_id='0'):
 
 def find_items(p_url, p_service, object_id):
     result = []
-    payload = (
-        f'''
+    payload = f"""
             <?xml version="1.0" encoding="utf-8" standalone="yes"?>
             <s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">
             <s:Body>
@@ -250,23 +250,20 @@ def find_items(p_url, p_service, object_id):
             </u:Browse>
             </s:Body>
             </s:Envelope>
-            ''')
-    soap_action_header = {
-        'Soapaction': f'"{p_service}#Browse"',
-        'Content-type': 'text/xml;charset="utf-8"'
-    }
+            """
+    soap_action_header = {'Soapaction': f'"{p_service}#Browse"', 'Content-type': 'text/xml;charset="utf-8"'}
 
     resp = requests.post(p_url, data=payload, headers=soap_action_header)
     if resp.status_code != 200:
         raise UpnpError(msg=f'Request failed with status: {resp.status_code}')
 
     xml_root = ElementTree.fromstring(resp.text)
-    containers = xml_root.find(".//*Result").text
+    containers = xml_root.find('.//*Result').text
     if not containers:
         return result
 
     xml_root = ElementTree.fromstring(containers)
-    items = xml_root.findall("./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}item")
+    items = xml_root.findall('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}item')
     for item in items:
         itm = Item(item)
         result.append(itm)

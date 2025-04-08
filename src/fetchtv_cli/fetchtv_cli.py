@@ -17,9 +17,9 @@ import fetchtv_cli.helpers.upnp as upnp
 try:
     from urlparse import urlparse
 except ImportError:
-    from urllib.parse import urlparse
+    pass
 
-SAVE_FILE = "fetchtv_save_list.json"
+SAVE_FILE = 'fetchtv_save_list.json'
 FETCHTV_PORT = 49152
 CONST_LOCK = '.lock'
 MAX_FILENAME = 255
@@ -27,6 +27,7 @@ REQUEST_TIMEOUT = 5
 MAX_OCTET = 4398046510080
 
 console = Console(highlight=False, log_path=False)
+
 
 class SavedFiles:
     """
@@ -39,7 +40,7 @@ class SavedFiles:
         """
         Instantiate from JSON file, if it exists
         """
-        with open(path + os.path.sep + SAVE_FILE, "a+") as read_file:
+        with open(path + os.path.sep + SAVE_FILE, 'a+') as read_file:
             read_file.seek(0)
             content = read_file.read()
             inst = jsonpickle.loads(content) if content else SavedFiles()
@@ -53,7 +54,7 @@ class SavedFiles:
     def add_file(self, item):
         self.__files[item.id] = item.title
         # Serialise after each success
-        with open(self.path + os.path.sep + SAVE_FILE, "w") as write_file:
+        with open(self.path + os.path.sep + SAVE_FILE, 'w') as write_file:
             write_file.write(jsonpickle.dumps(self))
 
     def contains(self, item):
@@ -85,7 +86,7 @@ def download_file(item, filename, json_result):
         r.raise_for_status()
         total_length = int(r.headers.get('content-length'))
         if total_length == MAX_OCTET:
-            msg = 'Skipping item it\'s currently recording'
+            msg = "Skipping item it's currently recording"
             print_warning(msg)
             json_result['warning'] = msg
             return False
@@ -109,7 +110,7 @@ def download_file(item, filename, json_result):
             if err.args:
                 try:
                     if isinstance(err.args[0].args[1], IncompleteRead):
-                        msg = f'Final read was short; FetchTV sets the wrong Content-Length header. File should be fine'
+                        msg = 'Final read was short; FetchTV sets the wrong Content-Length header. File should be fine'
                 except IndexError:
                     msg = f'Chunked encoding error occurred. Content length was {total_length}. Error was: {err}'
 
@@ -139,21 +140,38 @@ def get_fetch_recordings(location, folder, exclude, title, shows, is_recording):
 
 
 def has_include_folder(recording, folder):
-    return not (folder and
-                not next((include_folder for include_folder in folder
-                          if recording.title.lower().find(include_folder.strip().lower()) != -1), False))
+    return not (
+        folder
+        and not next(
+            (
+                include_folder
+                for include_folder in folder
+                if recording.title.lower().find(include_folder.strip().lower()) != -1
+            ),
+            False,
+        )
+    )
 
 
 def has_exclude_folder(recording, exclude):
-    return (exclude and
-            next((exclude_folder for exclude_folder in exclude
-                  if recording.title.lower().find(exclude_folder.strip().lower()) != -1), False))
+    return exclude and next(
+        (
+            exclude_folder
+            for exclude_folder in exclude
+            if recording.title.lower().find(exclude_folder.strip().lower()) != -1
+        ),
+        False,
+    )
 
 
 def has_title_match(item, title):
-    return not (title and
-                not next((include_title for include_title in title
-                          if item.title.lower().find(include_title.strip().lower()) != -1), False))
+    return not (
+        title
+        and not next(
+            (include_title for include_title in title if item.title.lower().find(include_title.strip().lower()) != -1),
+            False,
+        )
+    )
 
 
 def currently_recording(item):
@@ -248,11 +266,14 @@ def save_recordings(recordings, save_path, overwrite):
 def print_item(param):
     console.print(f'{param}', markup=False)
 
+
 def print_warning(param):
     console.print(f'[bold yellow]{param}')
 
+
 def print_error(param, level=2):
     console.print(f'[bold red]{param}')
+
 
 def print_heading(param):
     console.rule(title=param)
@@ -266,7 +287,7 @@ def create_item(item):
         'type': item_type,
         'duration': item.duration,
         'size': item.size,
-        'description': item.description
+        'description': item.description,
     }
 
 
@@ -301,9 +322,13 @@ def print_recordings(recordings, output_json):
 @click.option('--port', default=FETCHTV_PORT, help='Specify the port of the Fetch Server, if auto-discovery fails')
 @click.option('--overwrite', is_flag=True, help='Will save and overwrite any existing files')
 @click.option('--save', default=None, help='Save recordings to the specified path')
-@click.option('--folder', default=None, multiple=True, help='Only return recordings where the folder contains the specified text')
-@click.option('--exclude', default=None, multiple=True, help='Don\'t download folders containing the specified text')
-@click.option('--title', default=None, multiple=True, help='Only return recordings where the item contains the specified text')
+@click.option(
+    '--folder', default=None, multiple=True, help='Only return recordings where the folder contains the specified text'
+)
+@click.option('--exclude', default=None, multiple=True, help="Don't download folders containing the specified text")
+@click.option(
+    '--title', default=None, multiple=True, help='Only return recordings where the item contains the specified text'
+)
 @click.option('--json', is_flag=True, help='Output show/recording/save results in JSON')
 def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json):
     print_heading(f'Started: {datetime.now():%Y-%m-%d %H:%M:%S}')
@@ -330,6 +355,5 @@ def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder
     print_heading(f'Done: {datetime.now():%Y-%m-%d %H:%M:%S}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-
