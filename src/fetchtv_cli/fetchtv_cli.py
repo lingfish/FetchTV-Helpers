@@ -12,7 +12,7 @@ from urllib3.exceptions import IncompleteRead
 import click
 from rich.console import Console
 
-import helpers.upnp as upnp
+import fetchtv_cli.helpers.upnp as upnp
 
 try:
     from urlparse import urlparse

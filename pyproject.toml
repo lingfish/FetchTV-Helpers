@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "fetchtv-cli"
 dynamic = ["version"]
-description = 'A CLI tool to download recordings from FetchTV using UPnP.'
+description = 'A CLI tool to download recordings from Fetch TV boxes using UPnP.'
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -65,7 +65,7 @@ exclude_lines = [
 ]
 
 [project.scripts]
-compress-mail = "fetchtv_cli.fetchtv_cli:main"
+fetchtv = "fetchtv_cli.fetchtv_cli:main"
 
 [tool.pylint]
 max-line-length = 120
