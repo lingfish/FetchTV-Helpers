@@ -1,0 +1,31 @@
+name: Build and Publish
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Build the project
+        run: hatch build
+
+      - name: Publish the project
+        env:
+          HATCH_INDEX_USER: ${{ secrets.PYPI_USERNAME }}
+          HATCH_INDEX_AUTH: ${{ secrets.PYPI_PASSWORD }}
+        run: hatch publish
