@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import logging
 import os
 import re
@@ -220,7 +219,7 @@ def filter_recording_items(folder, exclude, title, shows, is_recording, recordin
 def discover_fetch(ip=False, port=FETCHTV_PORT):
     console.print('Starting discovery')
     try:
-        location_urls = upnp.discover_pnp_locations() if not ip else ['http://%s:%i/MediaServer.xml' % (ip, port)]
+        location_urls = upnp.ssdp_discovery(st='urn:schemas-upnp-org:device:MediaServer:1') if not ip else ['http://%s:%i/MediaServer.xml' % (ip, port)]
         locations = upnp.parse_locations(location_urls)
         # Find fetch
         result = [location for location in locations if location.manufacturerURL == 'http://www.fetch.com/']

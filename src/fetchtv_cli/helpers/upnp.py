@@ -16,8 +16,7 @@ NO_NUMBER_DEFAULT = ''
 
 
 class UpnpError(Exception):
-    def __init__(self, msg):
-        super().__init__(msg)
+    pass
 
 
 @dataclass
@@ -92,7 +91,10 @@ def ts_to_seconds(ts):
     Convert timestamp in the form HH:MM:SS to seconds.
     e.g. 00:31:27 = 1887 seconds
     """
-    return sum(float(unit) * 60**i for i, unit in enumerate(reversed(ts.split(':'))))
+    try:
+        return sum(float(unit) * 60**i for i, unit in enumerate(reversed(ts.split(':'))))
+    except ValueError:
+        raise UpnpError(f'Invalid timestamp format: {ts}')
 
 
 def get_xml_attr(xml, name, default=''):
@@ -102,33 +104,42 @@ def get_xml_attr(xml, name, default=''):
     return xml.attrib.get(name, default)
 
 
-def discover_pnp_locations():
+def ssdp_discovery(st='ssdp:all', timeout=3):
     """
-    Discover UPnP locations by sending a multicast message and listening for responses.
+    Perform SSDP M-SEARCH discovery to find UPnP devices on the network.
+
+    :param st: Search target (default is 'ssdp:all')
+    :param timeout: Timeout for receiving responses (in seconds)
+    :return: List of discovered device locations
     """
-    locations = set()
-    location_regex = re.compile(r'location:\s*(.+)\r\n', re.IGNORECASE)
-    ssdp_discover = (
-        'M-SEARCH * HTTP/1.1\r\n'
-        'HOST: 239.255.255.250:1900\r\n'
-        'MAN: "ssdp:discover"\r\n'
-        'MX: 1\r\n'
-        'ST: ssdp:all\r\n\r\n'
+    ssdp_request = (
+        f'M-SEARCH * HTTP/1.1\r\n'
+        f'HOST: 239.255.255.250:1900\r\n'
+        f'MAN: "ssdp:discover"\r\n'
+        f'MX: 1\r\n'
+        f'ST: {st}\r\n\r\n'
     )
 
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.sendto(ssdp_discover.encode('ASCII'), ('239.255.255.250', 1900))
-        sock.settimeout(DISCOVERY_TIMEOUT)
-        try:
-            while True:
-                data = sock.recvfrom(1024)[0]
-                match = location_regex.search(data.decode('ASCII'))
-                if match:
-                    locations.add(match.group(1))
-        except socket.timeout:
-            pass
-        except socket.error as err:
-            raise UpnpError(f'A socket error occurred: {err}')
+    # Create a UDP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.settimeout(timeout)
+    sock.sendto(ssdp_request.encode('utf-8'), ('239.255.255.250', 1900))
+
+    responses = []
+    try:
+        while True:
+            data, _ = sock.recvfrom(1024)
+            responses.append(data.decode('utf-8'))
+    except socket.timeout:
+        pass
+    finally:
+        sock.close()
+
+    # Extract locations from responses
+    location_regex = re.compile(r'LOCATION:\s*(.+)', re.IGNORECASE)
+    locations = [
+        location_regex.search(response).group(1).strip() for response in responses if location_regex.search(response)
+    ]
     return locations
 
 
@@ -155,18 +166,20 @@ def parse_locations(locations):
         for location in locations:
             try:
                 resp = requests.get(location, timeout=REQUEST_TIMEOUT)
+                resp.raise_for_status()
                 try:
                     xml_root = ElementTree.fromstring(resp.text)
                 except ElementTree.ParseError as err:
-                    raise UpnpError(msg=f'XML Parsing failed for location {location}, Error: {err.msg}')
+                    raise UpnpError(f'XML Parsing failed for location {location}, Error: {err.msg}')
 
                 loc = Location(location, xml_root)
                 result.append(loc)
 
-            except requests.exceptions.ConnectionError as err:
-                raise UpnpError(msg=f'Connection Error, could not load {location}, Error: {err}')
+            except requests.exceptions.ConnectionError:
+                # raise UpnpError(f'Connection Error, could not load {location}, Error: {err}')
+                continue
             except requests.exceptions.ReadTimeout:
-                raise UpnpError(msg=f'Timeout reading from {location}')
+                raise UpnpError(f'Timeout reading from {location}')
     return result
 
 
@@ -176,7 +189,7 @@ def get_services(location):
     try:
         xml_root = ElementTree.fromstring(resp.text)
     except Exception as err:
-        raise UpnpError(msg=f'XML parsing failed for location: {location}, Error: {err.msg}')
+        raise UpnpError(f'XML parsing failed for location: {location}, Error: {err.msg}')
 
     result = {}
 
@@ -237,7 +250,7 @@ def find_directories(api_service, object_id='0'):
 
     resp = requests.post(p_url, data=payload, headers=soap_action_header)
     if resp.status_code != 200:
-        raise UpnpError(msg=f'Request failed with status: {resp.status_code}')
+        raise UpnpError(f'Request failed with status: {resp.status_code}')
 
     xml_root = ElementTree.fromstring(resp.text)
     containers = xml_root.find('.//*Result').text
@@ -274,7 +287,7 @@ def find_items(p_url, p_service, object_id):
 
     resp = requests.post(p_url, data=payload, headers=soap_action_header)
     if resp.status_code != 200:
-        raise UpnpError(msg=f'Request failed with status: {resp.status_code}')
+        raise UpnpError(f'Request failed with status: {resp.status_code}')
 
     xml_root = ElementTree.fromstring(resp.text)
     containers = xml_root.find('.//*Result').text
