@@ -1,3 +1,4 @@
+import logging
 import re
 import socket
 from dataclasses import dataclass, field, InitVar
@@ -14,6 +15,7 @@ DISCOVERY_TIMEOUT = 3
 REQUEST_TIMEOUT = 5
 NO_NUMBER_DEFAULT = ''
 
+logger = logging.getLogger(__name__)
 
 class UpnpError(Exception):
     pass
@@ -59,6 +61,122 @@ class Folder:
         self.items = [itm for itm in items]
 
 
+
+@dataclass
+class ProtocolInfo:
+    protocol: str
+    network: str
+    content_format: str
+    additional_info: dict = field(default_factory=dict)
+
+    @staticmethod
+    def parse(protocol_info: str):
+        """
+        Parse the protocolInfo string into its components and interpret DLNA-specific fields.
+        """
+        try:
+            # Split the protocolInfo into main parts
+            protocol, network, content_format, additional_info = protocol_info.split(":", 3)
+
+            # Parse the additional info into a dictionary
+            additional_info_dict = {}
+            if additional_info:
+                for item in additional_info.split(";"):
+                    if "=" in item:
+                        key, value = item.split("=", 1)
+                        additional_info_dict[key] = value
+
+            # Interpret DLNA-specific fields
+            dlna_info = {
+                "DLNA.ORG_PN": ProtocolInfo.decode_dlna_pn(additional_info_dict.get("DLNA.ORG_PN", None)),  # Profile Name
+                "DLNA.ORG_OP": ProtocolInfo.parse_dlna_op(additional_info_dict.get("DLNA.ORG_OP", None)),  # Operations
+                "DLNA.ORG_PS": ProtocolInfo.parse_dlna_ps(additional_info_dict.get("DLNA.ORG_PS", None)),  # Play Speed
+                "DLNA.ORG_CI": ProtocolInfo.parse_dlna_ci(additional_info_dict.get("DLNA.ORG_CI", None)),  # Conversion Indicator
+                "DLNA.ORG_FLAGS": ProtocolInfo.parse_dlna_flags(additional_info_dict.get("DLNA.ORG_FLAGS", None)),  # Flags
+            }
+
+            return ProtocolInfo(
+                protocol=protocol,
+                network=network,
+                content_format=content_format,
+                additional_info=dlna_info
+            )
+        except ValueError:
+            raise ValueError(f"Invalid protocolInfo format: {protocol_info}")
+
+    @staticmethod
+    def decode_dlna_pn(pn_value):
+        """
+        Decode DLNA.ORG_PN field (Profile Name) into a human-readable format.
+        """
+        if pn_value is None:
+            return None
+
+        # Example mapping of DLNA profile names to descriptions
+        dlna_profiles = {
+            "AVC_TS_MP_HD_AAC": "MPEG-2 Transport Stream with H.264 video and AAC audio",
+            "AVC_TS_MP_SD_MPEG1_L3": "MPEG-2 Transport Stream with H.264 video and MPEG-1 Layer 3 audio",
+            "MPEG_PS_PAL": "MPEG Program Stream with PAL video",
+            "MPEG_PS_NTSC": "MPEG Program Stream with NTSC video",
+            "WMVHIGH_FULL": "Windows Media Video High Profile",
+            # Add more profiles as needed
+        }
+
+        return dlna_profiles.get(pn_value, f"Unknown profile: {pn_value}")
+
+    @staticmethod
+    def parse_dlna_op(op_value):
+        """
+        Parse DLNA.ORG_OP field (operations).
+        """
+        if op_value is None:
+            return None
+        # Bit 0: Streaming, Bit 1: Interactive
+        operations = []
+        if int(op_value, 16) & 0x01:
+            operations.append("Streaming")
+        if int(op_value, 16) & 0x02:
+            operations.append("Interactive")
+        return operations
+
+    @staticmethod
+    def parse_dlna_ps(ps_value):
+        """
+        Parse DLNA.ORG_PS field (play speed).
+        """
+        return "Time-based seeking supported" if ps_value == "1" else "Not supported"
+
+    @staticmethod
+    def parse_dlna_ci(ci_value):
+        """
+        Parse DLNA.ORG_CI field (conversion indicator).
+        """
+        return "Transcoded" if ci_value == "1" else "Not transcoded"
+
+    @staticmethod
+    def parse_dlna_flags(flags_value):
+        """
+        Parse DLNA.ORG_FLAGS field (flags).
+        """
+        if flags_value is None:
+            return None
+        # Interpret the 32-bit flags according to DLNA specs
+        flags = int(flags_value, 16)
+        return {
+            "SenderPaced": bool(flags & 0x80000000),
+            "TimeBasedSeek": bool(flags & 0x40000000),
+            "ByteBasedSeek": bool(flags & 0x20000000),
+            "FlagPlayContainer": bool(flags & 0x10000000),
+            "FlagS0Increasing": bool(flags & 0x08000000),
+            "FlagSNIncreasing": bool(flags & 0x04000000),
+            "RTSPPause": bool(flags & 0x02000000),
+            "StreamingMode": bool(flags & 0x01000000),
+            "InteractiveMode": bool(flags & 0x00800000),
+            "BackgroundMode": bool(flags & 0x00400000),
+            "ConnectionStall": bool(flags & 0x00200000),
+            "DLNA_V15": bool(flags & 0x00100000),
+        }
+
 @dataclass
 class Item:
     xml: InitVar[str]
@@ -71,6 +189,8 @@ class Item:
     size: int = field(init=False)
     duration: int = field(init=False)
     parent_name: str = field(init=False)
+    recorded: str = field(init=False)
+    protocol_info: ProtocolInfo = field(init=False)
 
     def __post_init__(self, xml):
         self.type = xml.find('./{urn:schemas-upnp-org:metadata-1-0/upnp/}class').text
@@ -79,11 +199,13 @@ class Item:
         self.parent_id = get_xml_attr(xml, 'parentID', NO_NUMBER_DEFAULT)
         self.description = xml.find('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}description')
         self.description = self.description.text if self.description is not None else ''
+        self.recorded = xml.find('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}recordedStartDateTime').text
         res = xml.find('./{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res')
         self.url = res.text
         self.size = int(get_xml_attr(res, 'size', NO_NUMBER_DEFAULT))
         self.duration = ts_to_seconds(get_xml_attr(res, 'duration', '0'))
         self.parent_name = get_xml_attr(res, 'parentTaskName')
+        self.protocol_info = ProtocolInfo.parse(get_xml_attr(res, 'protocolInfo', NO_NUMBER_DEFAULT))
 
 
 def ts_to_seconds(ts):
@@ -299,4 +421,5 @@ def find_items(p_url, p_service, object_id):
     for item in items:
         itm = Item(item)
         result.append(itm)
+        logger.debug(item)
     return result
