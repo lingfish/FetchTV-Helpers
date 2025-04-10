@@ -110,25 +110,25 @@ fetchtv [COMMANDS] [OPTIONS]
 
 ### Commands
 
-| Command       | Description                                                                                                                                  |
-|---------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| --help        | Display this help                                                                                                                            |
-| --info        | Attempts auto-discovery and returns the Fetch box details                                                                                    |
-| --recordings  | List or save recordings                                                                                                                      |
-| --shows       | List the names of shows with available recordings                                                                                            |
-| --isrecording | List any items that are currently recording. If no filtering is specified this will scan all items on the Fetch box so it can take some time |
+| Command         | Description                                                                                                                                  |
+|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `--help`        | Display this help                                                                                                                            |
+| `--info`        | Attempts auto-discovery and returns the Fetch box details                                                                                    |
+| `--recordings`  | List or save recordings                                                                                                                      |
+| `--shows`       | List the names of shows with available recordings                                                                                            |
+| `--isrecording` | List any items that are currently recording. If no filtering is specified this will scan all items on the Fetch box so it can take some time |
 
 
 ### Options
 
-| Option               | Description                                                                           |
-|----------------------|---------------------------------------------------------------------------------------|
-| --ip \<address\>     | Specify the IP address of the Fetch box, if auto-discovery fails                      |
-| --port INTEGER       | Specify the port of the Fetch box, if auto-discovery fails, normally 49152            |
-| --overwrite          | Will save and overwrite any existing files                                            |
-| --save <path>        | Save recordings to the specified path                                                 |
-| --folder <text\>     | Only return recordings where the folder contains the specified text (can be repeated) |
-| --exclude \<text\>   | Dont download folders containing the specified text (can be repeated)                 |
-| --title \<text\>     | Only return recordings where the item contains the specified text (can be repeated)   |
-| --json               | Output show/recording/save results in JSON                                            |
-| --table / --no-table | Show recordings in a table                                                            |
+| Option                   | Description                                                                           |
+|--------------------------|---------------------------------------------------------------------------------------|
+| `--ip <address>`         | Specify the IP address of the Fetch box, if auto-discovery fails                      |
+| `--port INTEGER`         | Specify the port of the Fetch box, if auto-discovery fails, normally 49152            |
+| `--overwrite`            | Will save and overwrite any existing files                                            |
+| `--save <path>`          | Save recordings to the specified path                                                 |
+| `--folder <text>`        | Only return recordings where the folder contains the specified text (can be repeated) |
+| `--exclude <text>`       | Dont download folders containing the specified text (can be repeated)                 |
+| `--title <text>`         | Only return recordings where the item contains the specified text (can be repeated)   |
+| `--json`                 | Output show/recording/save results in JSON                                            |
+| `--table` / `--no-table` | Show recordings in a table                                                            |

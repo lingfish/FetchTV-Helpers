@@ -208,7 +208,7 @@ class Item:
         self.protocol_info = ProtocolInfo.parse(get_xml_attr(res, 'protocolInfo', NO_NUMBER_DEFAULT))
 
 
-def ts_to_seconds(ts):
+def ts_to_seconds(ts: str) -> float:
     """
     Convert timestamp in the form HH:MM:SS to seconds.
     e.g. 00:31:27 = 1887 seconds
@@ -219,14 +219,14 @@ def ts_to_seconds(ts):
         raise UpnpError(f'Invalid timestamp format: {ts}')
 
 
-def get_xml_attr(xml, name, default=''):
+def get_xml_attr(xml: ElementTree.Element, name: str, default: str = '') -> str:
     """
     Return the value of an attribute if it exists, otherwise return the default value.
     """
     return xml.attrib.get(name, default)
 
 
-def ssdp_discovery(st='ssdp:all', timeout=3):
+def ssdp_discovery(st: str = 'ssdp:all', timeout: int = 3) -> list[str]:
     """
     Perform SSDP M-SEARCH discovery to find UPnP devices on the network.
 
@@ -265,7 +265,7 @@ def ssdp_discovery(st='ssdp:all', timeout=3):
     return locations
 
 
-def get_xml_text(xml, xml_name, default=''):
+def get_xml_text(xml: ElementTree.Element, xml_name: str, default: str = '') -> str:
     """
     Return the text value if it exists, if not return the default value
     """
@@ -275,7 +275,7 @@ def get_xml_text(xml, xml_name, default=''):
         return default
 
 
-def parse_locations(locations):
+def parse_locations(locations: list[str]) -> list[Location]:
     """
     Loads the XML at each location and prints out the API along with some other
     interesting data.
@@ -305,7 +305,7 @@ def parse_locations(locations):
     return result
 
 
-def get_services(location):
+def get_services(location: Location) -> dict:
     parsed = urlparse(location.url)
     resp = requests.get(location.url, timeout=REQUEST_TIMEOUT)
     try:
@@ -342,7 +342,7 @@ def get_services(location):
     return result
 
 
-def find_directories(api_service, object_id='0'):
+def find_directories(api_service: dict, object_id: str = '0') -> list[Folder]:
     """
     Send a 'Browse' request for the top level directory. We will print out the
     top level containers that we observer. I've limited the count to 10.
@@ -389,7 +389,7 @@ def find_directories(api_service, object_id='0'):
     return result
 
 
-def find_items(p_url, p_service, object_id):
+def find_items(p_url: str, p_service: str, object_id: str) -> list[Item]:
     result = []
     payload = f"""
             <?xml version="1.0" encoding="utf-8" standalone="yes"?>

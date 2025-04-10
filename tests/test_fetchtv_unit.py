@@ -163,7 +163,9 @@ class TestGetFetchRecordings:
         fetch_server = Mock()
         fetch_server.url = URL_DUMMY
         results = fetchtv.get_fetch_recordings(fetch_server, [], [], [], True, False)
+        print(results)
         output = fetchtv.print_recordings(results, True)
+        print(output)
         output = json.loads(output)
         assert len(output) == 8
 
@@ -282,7 +284,6 @@ class TestDownloadFile:
         mock_file = mock_open(read_data='xxx')
         mock_location = Mock()
         mock_location.url = URL_DUMMY
-        with patch('requests.get', mock_get):
-            with patch('fetchtv_upnp.open', mock_file):
-                with patch('fetchtv_upnp.os.rename', Mock()):
-                    self
+        with patch('fetchtv_cli.fetchtv_cli.open', mock_file):
+            with patch('fetchtv_cli.fetchtv_cli.os.rename', Mock()):
+                pass
