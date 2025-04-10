@@ -219,7 +219,11 @@ def filter_recording_items(folder, exclude, title, shows, is_recording, recordin
 def discover_fetch(ip=False, port=FETCHTV_PORT):
     console.print('Starting discovery')
     try:
-        location_urls = upnp.ssdp_discovery(st='urn:schemas-upnp-org:device:MediaServer:1') if not ip else [f'http://{ip}:{port}/MediaServer.xml']
+        location_urls = (
+            upnp.ssdp_discovery(st='urn:schemas-upnp-org:device:MediaServer:1')
+            if not ip
+            else [f'http://{ip}:{port}/MediaServer.xml']
+        )
         locations = upnp.parse_locations(location_urls)
         # Find fetch
         result = [location for location in locations if location.manufacturerURL == 'http://www.fetch.com/']
@@ -297,18 +301,39 @@ def create_item(item):
     }
 
 
-def print_recordings(recordings, output_json):
+def print_recordings(recordings, output_json, show_table):
     if not output_json:
         print_heading('List recordings')
         if not recordings:
             print_warning('No recordings found!')
 
         tree = Tree('Recordings')
+        # Define the hardcoded selection of fields to display
+        selected_fields = ['title', 'recorded']
+
         for recording in recordings:
             if recording['items']:
+                recording_table = Table(header_style='on grey19')
+
+                if show_table:
+                    # Add only the selected columns
+                    for field_name in selected_fields:
+                        recording_table.add_column(field_name.capitalize(), justify='left')
+                    recording_table.add_column('Type', justify='left')
+
                 title = tree.add(f'[green]:file_folder: {recording["title"]}')
+
                 for item in recording['items']:
-                    title.add(f'{item.title} ({item.url})')
+                    if show_table:
+                        recording_table.add_row(
+                            *[str(getattr(item, field_name, '')) for field_name in selected_fields],
+                            item.protocol_info.additional_info['DLNA.ORG_PN'],
+                        )
+                    else:
+                        title.add(f'{item.title} ({item.recorded})')
+
+                if show_table:
+                    title.add(recording_table)
         console.print(tree)
     else:
         output = []
@@ -338,7 +363,8 @@ def print_recordings(recordings, output_json):
 )
 @click.option('--json', is_flag=True, help='Output show/recording/save results in JSON')
 @click.option('--debug', is_flag=True, help='Enable debug mode')
-def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json, debug):
+@click.option('--table/--no-table', 'show_table', is_flag=True, default=True, help='Show recordings in a table')
+def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder, exclude, title, json, debug, show_table):
     if debug:
         import http.client as http_client
 
@@ -373,7 +399,7 @@ def main(info, recordings, shows, isrecording, ip, port, overwrite, save, folder
         with console.status('Getting Fetch recordings...'):
             recordings = get_fetch_recordings(fetch_server, folder, exclude, title, shows, isrecording)
         if not save:
-            print_recordings(recordings, json)
+            print_recordings(recordings, json, show_table)
         else:
             # with console.status('Saving recordings'):
             print_heading('Saving recordings')
