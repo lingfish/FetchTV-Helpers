@@ -5,7 +5,7 @@ import unittest
 import pytest
 
 from src.fetchtv_cli import fetchtv_cli as fetchtv
-from mock import Mock, patch
+from unittest.mock import Mock, patch
 
 pytestmark = pytest.mark.skip(reason='These are strange (and probably not required) integration tests')
 
