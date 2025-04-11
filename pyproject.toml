@@ -46,7 +46,7 @@ extra-dependencies = [
 check = "mypy --install-types --non-interactive {args:src/fetchtv_cli tests}"
 
 [tool.coverage.run]
-source_pkgs = ["fetchtv_cli", "tests"]
+source_pkgs = ["fetchtv_cli"]
 branch = true
 parallel = true
 omit = [
